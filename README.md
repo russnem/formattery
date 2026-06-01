@@ -2,7 +2,11 @@
 
 *A code formatter for people who don't paste their work into random websites.*
 
+![The Formattery — minified JSON on the left, an interactive collapsible tree on the right](docs/screenshot.png)
+
 One HTML file. Auto-detects about fifteen languages. Runs entirely in your browser. Nothing leaves the page.
+
+[**Live demo →**](https://russnem.github.io/formattery/) · The page itself runs offline; the link just lets you try it without downloading first.
 
 ---
 
@@ -33,6 +37,8 @@ Double-click `index.html`. That's it.
 Or drag it into any modern browser. Or put it on a USB stick. Or email it to yourself. The whole thing is roughly 2 MB on disk, almost all of which is the vendored Prettier bundle.
 
 No build step. No `npm install`. No server. No configuration file.
+
+**Try a sample without typing anything.** Append `?demo=json`, `?demo=js`, `?demo=css`, or `?demo=sql` to the URL to prefill the input.
 
 ---
 

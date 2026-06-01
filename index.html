@@ -504,6 +504,29 @@ let t; input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(r
 buildMenu();
 applyTreeIndent();
 showJsonControls(false);
+
+// ?demo=json|js|css|sql prefills the input with a small sample.
+// Useful as a "try one" for visitors and as the source for the README screenshot.
+(function loadDemo() {
+  const m = location.search.match(/[?&]demo=([a-z0-9]+)/i);
+  if (!m) return;
+  const samples = {
+    json: JSON.stringify({
+      name: "The Formattery",
+      version: "0.1.0",
+      license: "MIT",
+      runtime: "browser",
+      languages: ["JSON","JavaScript","TypeScript","CSS","HTML","YAML","Markdown","SQL"],
+      privacy: { network_calls: 0, telemetry: false, vendored: ["prettier","sql-formatter"] },
+      tagline: "A code formatter for people who don't paste their work into random websites."
+    }),
+    js: "const greet=(name)=>`Hello, ${name}!`;function squarer(xs){return xs.map(x=>x*x).filter(x=>x>4);}",
+    css: "a{color:red;margin:0}h1.title{font-size:32px;font-weight:600;color:#d4a44c}",
+    sql: "select id, name, created_at from users where status='active' and created_at > now()-interval '30 days' order by created_at desc;"
+  };
+  const s = samples[m[1].toLowerCase()];
+  if (s) { input.value = s; run(); }
+})();
 </script>
 </body>
 </html>
