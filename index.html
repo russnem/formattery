@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Formattery</title>
+<style>
+  :root {
+    --bg: #1c1815;
+    --panel: #26201c;
+    --border: #3d3530;
+    --text: #ece4d6;
+    --muted: #a89890;
+    --accent: #d4a44c;
+    --error: #f87171;
+    --ok: #4ade80;
+    --key: #93c5fd;
+    --string: #86efac;
+    --number: #fca5a5;
+    --bool: #c4b5fd;
+    --null: #71717a;
+    --punct: #a1a1aa;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  h1 { font-family: ui-serif, "New York", Georgia, serif; font-style: italic; font-size: 16px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  button, select {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover, select:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #0a0a0a; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { filter: brightness(1.1); }
+  button.hidden { display: none; }
+  label { font-size: 13px; color: var(--muted); }
+
+  /* Detected-language pill + override menu */
+  .pill-wrap { position: relative; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 999px; padding: 5px 12px; font-size: 12px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .pill.auto .dot { background: var(--ok); }
+  .pill.manual .dot { background: var(--accent); }
+  .pill:hover { border-color: var(--accent); color: var(--text); }
+  .menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px; min-width: 160px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .menu[hidden] { display: none; }
+  .menu button {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; text-align: left; background: transparent; border: none;
+    border-radius: 5px; padding: 6px 10px; font-size: 13px;
+  }
+  .menu button:hover { background: var(--bg); border: none; }
+  .menu button .check { color: var(--accent); visibility: hidden; }
+  .menu button.active .check { visibility: visible; }
+  .menu .sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  .status { font-size: 13px; min-height: 18px; padding: 4px 16px; }
+  .status.error { color: var(--error); }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--muted); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: 0;
+  }
+  .pane { display: flex; flex-direction: column; background: var(--bg); min-height: 0; min-width: 0; }
+  .pane-label { padding: 6px 12px; font-size: 12px; font-style: italic; color: var(--muted); border-bottom: 1px solid var(--border); }
+  textarea {
+    flex: 1; background: var(--bg); color: var(--text); border: none; resize: none;
+    padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5; tab-size: 2; outline: none; overflow: auto;
+  }
+  .output {
+    flex: 1; overflow: auto; padding: 12px; margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5;
+  }
+  .output pre.code { margin: 0; white-space: pre; }
+
+  /* Always-visible scrollbars on both panes */
+  textarea::-webkit-scrollbar, .output::-webkit-scrollbar { width: 14px; height: 14px; }
+  textarea::-webkit-scrollbar-track, .output::-webkit-scrollbar-track { background: var(--bg); }
+  textarea::-webkit-scrollbar-thumb, .output::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 7px; border: 3px solid var(--bg);
+  }
+  textarea::-webkit-scrollbar-thumb:hover, .output::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  textarea::-webkit-scrollbar-corner, .output::-webkit-scrollbar-corner { background: var(--bg); }
+  textarea, .output { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg); }
+
+  /* Collapsible JSON tree */
+  .line { position: relative; padding-left: 1.4em; white-space: nowrap; }
+  .obj > .line { cursor: pointer; }
+  .obj > .line:hover .toggle { color: var(--accent); }
+  .toggle { position: absolute; left: 0; width: 1.4em; text-align: center; color: var(--muted); user-select: none; }
+  .children { padding-left: var(--tree-indent, 1.4em); }
+  .preview, .preview-close { display: none; }
+  .preview { color: var(--muted); }
+  .entry.collapsed > .line > .preview,
+  .entry.collapsed > .line > .preview-close { display: inline; }
+  .entry.collapsed > .children, .entry.collapsed > .close { display: none; }
+
+  .tok-key { color: var(--key); }
+  .tok-string { color: var(--string); }
+  .tok-number { color: var(--number); }
+  .tok-bool { color: var(--bool); }
+  .tok-null { color: var(--null); }
+  .tok-punct { color: var(--punct); }
+</style>
+</head>
+<body>
+<header>
+  <h1>The Formattery</h1>
+  <div class="pill-wrap">
+    <button id="pill" class="pill" title="Detected language — click to override"><span class="dot"></span><span id="pillText">paste something</span> ▾</button>
+    <div id="langMenu" class="menu" hidden></div>
+  </div>
+  <div class="controls">
+    <label for="indent">Indent</label>
+    <select id="indent">
+      <option value="2" selected>2 spaces</option>
+      <option value="4">4 spaces</option>
+      <option value="\t">Tab</option>
+      <option value="0">Minify (JSON)</option>
+    </select>
+    <button id="sortKeys" class="json-only">Sort keys: off</button>
+    <button id="expandBtn" class="json-only">Expand all</button>
+    <button id="collapseBtn" class="json-only">Collapse all</button>
+    <button id="copyBtn">Copy</button>
+    <button id="clearBtn">Clear</button>
+    <button id="prettyBtn" class="primary">Format</button>
+  </div>
+</header>
+<div class="status" id="status"></div>
+<main>
+  <section class="pane">
+    <div class="pane-label">Input</div>
+    <textarea id="input" placeholder="Paste anything — JSON, JS, TS, CSS, HTML, YAML, SQL, Markdown, GraphQL…  (Cmd/Ctrl+Enter to format)" spellcheck="false" autofocus></textarea>
+  </section>
+  <section class="pane">
+    <div class="pane-label">Output</div>
+    <div class="output" id="output"></div>
+  </section>
+</main>
+
+<!-- Vendored locally — nothing is fetched from the network at runtime -->
+<script src="vendor/prettier/standalone.js"></script>
+<script src="vendor/prettier/plugins/babel.js"></script>
+<script src="vendor/prettier/plugins/estree.js"></script>
+<script src="vendor/prettier/plugins/typescript.js"></script>
+<script src="vendor/prettier/plugins/postcss.js"></script>
+<script src="vendor/prettier/plugins/html.js"></script>
+<script src="vendor/prettier/plugins/markdown.js"></script>
+<script src="vendor/prettier/plugins/yaml.js"></script>
+<script src="vendor/prettier/plugins/graphql.js"></script>
+<script src="vendor/sql-formatter/sql-formatter.min.js"></script>
+
+<script>
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+const indentSel = document.getElementById('indent');
+const sortBtn = document.getElementById('sortKeys');
+const pill = document.getElementById('pill');
+const pillText = document.getElementById('pillText');
+const langMenu = document.getElementById('langMenu');
+
+let sortKeys = false;
+let forcedLang = null;        // null = auto-detect
+let outputMode = 'none';      // 'json' | 'text' | 'none'
+let lastValue;                // parsed JSON (for Copy)
+let lastText = '';            // formatted text (for Copy)
+let runToken = 0;             // guards against out-of-order async renders
+
+// Prettier parser per language id
+const PARSERS = {
+  js: 'babel', ts: 'typescript', html: 'html',
+  css: 'css', scss: 'scss', less: 'less',
+  yaml: 'yaml', markdown: 'markdown', graphql: 'graphql', json5: 'json5',
+};
+const LABELS = {
+  json: 'JSON', json5: 'JSON5', js: 'JavaScript', ts: 'TypeScript', html: 'HTML',
+  css: 'CSS', scss: 'SCSS', less: 'Less', yaml: 'YAML', markdown: 'Markdown',
+  graphql: 'GraphQL', sql: 'SQL',
+};
+// Languages offered in the override menu
+const MENU = ['json', 'js', 'ts', 'html', 'css', 'scss', 'less', 'yaml', 'markdown', 'graphql', 'sql'];
+
+/* ---------- detection ---------- */
+function detectCandidates(raw) {
+  const t = raw.trim();
+  const c = [];
+  const add = x => { if (!c.includes(x)) c.push(x); };
+
+  if (/^[\[{]/.test(t) || /^"(?:\\.|[^"\\])*"$/.test(t) || /^-?\d/.test(t) || /^(true|false|null)$/.test(t)) {
+    add('json'); add('json5');
+  }
+  if (/^<\?xml/i.test(t) || /^<!doctype/i.test(t) || /^<[a-z!][\s\S]*>/i.test(t)) add('html');
+  if (/^\s*(query|mutation|subscription|fragment\s+\w+\s+on|schema|type\s+\w+|input\s+\w+|enum\s+\w+|interface\s+\w+|scalar\s+\w+|union\s+\w+)\b[\s\S]*\{/.test(t)) add('graphql');
+  if (/^\s*(select|insert\s+into|update\s+\w|delete\s+from|create\s+(table|view|index|database)|alter\s+table|drop\s+(table|view)|with\s+\w+\s+as)\b/i.test(t)) add('sql');
+
+  const cssBlock = /[^{};]+\{[^{}]*:[^{}]*;?[^{}]*\}/.test(t);
+  const cssAt = /@(media|import|font-face|keyframes|supports|charset|tailwind|apply|mixin|include|function|if|each|for)\b/.test(t);
+  if (cssBlock || cssAt) {
+    if (/\$[\w-]+\s*:/.test(t) || /@mixin|@include|%[\w-]+\s*\{|#\{|@if|@each|@for/.test(t)) add('scss');
+    if (/@[\w-]+\s*:\s*[^;]+;/.test(t) || /\.[\w-]+\s*\([^)]*\)\s*;/.test(t)) add('less');
+    add('css');
+  }
+
+  if (/(^|\n)\s*(import|export)\b/.test(t) || /\b(function\*?|const|let|var|class|return|async|await)\b/.test(t) ||
+      /=>/.test(t) || /\binterface\s+\w+|\btype\s+\w+\s*=|\benum\s+\w+|:\s*(string|number|boolean|any|void)\b/.test(t)) {
+    add('ts'); // the TS parser also handles plain JS
+  }
+  if (/^---\s*$/m.test(t) || /^[ \t]*[\w.-]+\s*:\s+\S/m.test(t) || /^[ \t]*-\s+\S/m.test(t)) add('yaml');
+  if (/^#{1,6}\s+\S/m.test(t) || /^\s*([-*+]|\d+\.)\s+\S/m.test(t) || /\[[^\]]+\]\([^)]+\)/.test(t) ||
+      /^>\s/m.test(t) || /```/.test(t) || /(\*\*|__).+(\*\*|__)/.test(t)) add('markdown');
+
+  return c;
+}
+
+/* ---------- formatting ---------- */
+function prettierOpts() {
+  const v = indentSel.value;
+  if (v === '\\t') return { useTabs: true, printWidth: 80 };
+  if (v === '0') return { tabWidth: 2, printWidth: 80 }; // true minify only applies to JSON
+  return { tabWidth: parseInt(v, 10), printWidth: 80 };
+}
+function sqlOpts() {
+  const v = indentSel.value;
+  if (v === '\\t') return { useTabs: true };
+  if (v === '0') return { tabWidth: 2 };
+  return { tabWidth: parseInt(v, 10) };
+}
+
+async function formatLang(lang, raw) {
+  if (lang === 'json') {
+    let value = JSON.parse(raw);            // throws on invalid JSON
+    if (sortKeys) value = sortValue(value);
+    return { kind: 'json', value, label: 'JSON' };
+  }
+  if (lang === 'sql') {
+    if (!window.sqlFormatter) throw new Error('SQL formatter unavailable');
+    return { kind: 'text', text: window.sqlFormatter.format(raw, sqlOpts()), label: 'SQL' };
+  }
+  const parser = PARSERS[lang];
+  if (!parser) throw new Error('no parser for ' + lang);
+  const text = await window.prettier.format(raw, { parser, plugins: window.prettierPlugins, ...prettierOpts() });
+  return { kind: 'text', text, label: LABELS[lang] };
+}
+
+async function run() {
+  const my = ++runToken;
+  const raw = input.value;
+  if (!raw.trim()) { resetOutput(); setPill('paste something', 'none'); setStatus('', ''); return; }
+
+  const order = forcedLang ? [forcedLang] : detectCandidates(raw);
+
+  for (const lang of order) {
+    try {
+      const res = await formatLang(lang, raw);
+      if (my !== runToken) return;          // a newer run superseded us
+      renderResult(res, !forcedLang);
+      return;
+    } catch (e) {
+      if (my !== runToken) return;
+      if (forcedLang) {                      // user explicitly chose this; show why it failed
+        if (forcedLang === 'json') { renderNothing(); setStatus(formatJsonError(e, raw), 'error'); }
+        else { renderNothing(); setStatus(LABELS[lang] + ': ' + e.message.split('\n')[0], 'error'); }
+        setPill(LABELS[forcedLang] || forcedLang, 'manual');
+        return;
+      }
+      // auto mode: just try the next candidate
+    }
+  }
+  if (my !== runToken) return;
+  renderPlain(raw);                          // nothing matched — show untouched
+}
+
+/* ---------- rendering ---------- */
+function renderResult(res, isAuto) {
+  if (res.kind === 'json') {
+    showJsonControls(true);
+    outputMode = 'json'; lastValue = res.value; lastText = '';
+    output.innerHTML = '';
+    output.appendChild(buildTree(res.value, null, true));
+    setStatus(jsonSummary(res.value), 'ok');
+    setPill(res.label, isAuto ? 'auto' : 'manual');
+  } else {
+    showJsonControls(false);
+    outputMode = 'text'; lastText = res.text; lastValue = undefined;
+    output.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.className = 'code';
+    pre.textContent = res.text;
+    output.appendChild(pre);
+    const lines = res.text.replace(/\n$/, '').split('\n').length;
+    setStatus(`${res.label} · ${lines.toLocaleString()} lines`, 'ok');
+    setPill(res.label, isAuto ? 'auto' : 'manual');
+  }
+}
+function renderPlain(raw) {
+  showJsonControls(false);
+  outputMode = 'text'; lastText = raw; lastValue = undefined;
+  output.innerHTML = '';
+  const pre = document.createElement('pre');
+  pre.className = 'code';
+  pre.textContent = raw;
+  output.appendChild(pre);
+  setStatus("Couldn't recognize this — showing it as-is. Use the pill to pick a language.", 'warn');
+  setPill('Plain text', 'auto');
+}
+function renderNothing() { output.innerHTML = ''; outputMode = 'none'; }
+function resetOutput() { output.innerHTML = ''; outputMode = 'none'; showJsonControls(false); }
+
+function showJsonControls(show) {
+  document.querySelectorAll('.json-only').forEach(b => b.classList.toggle('hidden', !show));
+}
+
+function setPill(label, state) {
+  pillText.textContent = (state === 'auto' ? 'Detected: ' : state === 'manual' ? 'Locked: ' : '') + label;
+  pill.classList.toggle('auto', state === 'auto');
+  pill.classList.toggle('manual', state === 'manual');
+}
+
+/* ---------- JSON tree ---------- */
+function tokenClass(v) {
+  if (v === null) return 'tok-null';
+  switch (typeof v) { case 'string': return 'tok-string'; case 'number': return 'tok-number'; case 'boolean': return 'tok-bool'; default: return 'tok-string'; }
+}
+function formatPrimitive(v) {
+  if (v === null) return 'null';
+  if (typeof v === 'string') return JSON.stringify(v);
+  return String(v);
+}
+function span(cls, text) { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; }
+
+function buildTree(value, key, isLast) {
+  const entry = document.createElement('div');
+  entry.className = 'entry';
+  const line = document.createElement('div');
+  line.className = 'line';
+  const comma = isLast ? '' : ',';
+  const isObject = value !== null && typeof value === 'object';
+
+  if (isObject) {
+    entry.classList.add('obj');
+    const isArr = Array.isArray(value);
+    const keys = isArr ? value.map((_, i) => i) : Object.keys(value);
+    const openCh = isArr ? '[' : '{', closeCh = isArr ? ']' : '}';
+    line.appendChild(span('toggle', keys.length ? '−' : ' '));
+    if (key !== null) line.appendChild(span('tok-key', JSON.stringify(key) + ': '));
+    line.appendChild(span('tok-punct', openCh));
+    if (keys.length === 0) { line.appendChild(span('tok-punct', closeCh + comma)); entry.appendChild(line); return entry; }
+    line.appendChild(span('preview', ` ${keys.length} ${isArr ? 'items' : 'keys'} `));
+    line.appendChild(span('preview-close tok-punct', closeCh + comma));
+    entry.appendChild(line);
+    const children = document.createElement('div');
+    children.className = 'children';
+    keys.forEach((k, i) => children.appendChild(buildTree(value[k], isArr ? null : k, i === keys.length - 1)));
+    entry.appendChild(children);
+    const closeLine = document.createElement('div');
+    closeLine.className = 'line close';
+    closeLine.appendChild(span('toggle', ' '));
+    closeLine.appendChild(span('tok-punct', closeCh + comma));
+    entry.appendChild(closeLine);
+    line.addEventListener('click', () => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      entry.classList.toggle('collapsed');
+    });
+  } else {
+    line.appendChild(span('toggle', ' '));
+    if (key !== null) line.appendChild(span('tok-key', JSON.stringify(key) + ': '));
+    line.appendChild(span(tokenClass(value), formatPrimitive(value)));
+    if (comma) line.appendChild(span('tok-punct', comma));
+    entry.appendChild(line);
+  }
+  return entry;
+}
+
+function sortValue(v) {
+  if (Array.isArray(v)) return v.map(sortValue);
+  if (v && typeof v === 'object') return Object.keys(v).sort().reduce((a, k) => { a[k] = sortValue(v[k]); return a; }, {});
+  return v;
+}
+function getIndent() { const v = indentSel.value; if (v === '\\t') return '\t'; return parseInt(v, 10); }
+function applyTreeIndent() {
+  const v = indentSel.value;
+  let em;
+  if (v === '\\t') em = 1.6;
+  else if (v === '0') em = 0.8;            // minify: keep tree readable but tight
+  else em = (parseInt(v, 10) || 2) * 0.6;  // 2sp -> 1.2em, 4sp -> 2.4em
+  output.style.setProperty('--tree-indent', em + 'em');
+}
+function jsonSummary(v) {
+  const bytes = new Blob([input.value]).size;
+  let d = `Valid JSON · ${bytes.toLocaleString()} bytes`;
+  if (Array.isArray(v)) d += ` · array of ${v.length}`;
+  else if (v && typeof v === 'object') d += ` · ${Object.keys(v).length} keys`;
+  return d;
+}
+function formatJsonError(e, raw) {
+  const m = e.message.match(/position (\d+)/);
+  if (m) {
+    const pos = +m[1], before = raw.slice(0, pos);
+    return `${e.message} (line ${before.split('\n').length}, column ${pos - before.lastIndexOf('\n')})`;
+  }
+  return e.message;
+}
+function setStatus(text, cls) { status.textContent = text; status.className = 'status' + (cls ? ' ' + cls : ''); }
+
+function setAllCollapsed(collapsed) {
+  output.querySelectorAll('.entry.obj').forEach(e => {
+    if (e.querySelector(':scope > .children')) e.classList.toggle('collapsed', collapsed);
+  });
+}
+
+/* ---------- override menu ---------- */
+function buildMenu() {
+  langMenu.innerHTML = '';
+  const auto = document.createElement('button');
+  auto.dataset.lang = '';
+  auto.innerHTML = '<span>Auto-detect</span><span class="check">✓</span>';
+  langMenu.appendChild(auto);
+  const sep = document.createElement('div'); sep.className = 'sep'; langMenu.appendChild(sep);
+  MENU.forEach(id => {
+    const b = document.createElement('button');
+    b.dataset.lang = id;
+    b.innerHTML = `<span>${LABELS[id]}</span><span class="check">✓</span>`;
+    langMenu.appendChild(b);
+  });
+  langMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    forcedLang = btn.dataset.lang || null;
+    markMenu();
+    langMenu.hidden = true;
+    run();
+  });
+}
+function markMenu() {
+  langMenu.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', (b.dataset.lang || null) === forcedLang);
+  });
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('prettyBtn').addEventListener('click', run);
+indentSel.addEventListener('change', () => { applyTreeIndent(); run(); });
+sortBtn.addEventListener('click', () => {
+  sortKeys = !sortKeys;
+  sortBtn.textContent = 'Sort keys: ' + (sortKeys ? 'on' : 'off');
+  run();
+});
+document.getElementById('expandBtn').addEventListener('click', () => setAllCollapsed(false));
+document.getElementById('collapseBtn').addEventListener('click', () => setAllCollapsed(true));
+document.getElementById('clearBtn').addEventListener('click', () => {
+  input.value = ''; resetOutput(); setPill('paste something', 'none'); setStatus('', ''); input.focus();
+});
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  let text = '';
+  if (outputMode === 'json') text = JSON.stringify(lastValue, null, getIndent() || undefined);
+  else if (outputMode === 'text') text = lastText;
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); setStatus('Copied to clipboard', 'ok'); }
+  catch { setStatus('Copy failed — clipboard blocked by browser', 'error'); }
+});
+pill.addEventListener('click', (e) => { e.stopPropagation(); langMenu.hidden = !langMenu.hidden; markMenu(); });
+document.addEventListener('click', (e) => { if (!langMenu.hidden && !e.target.closest('.pill-wrap')) langMenu.hidden = true; });
+input.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run(); } });
+let t; input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 250); });
+
+buildMenu();
+applyTreeIndent();
+showJsonControls(false);
+</script>
+</body>
+</html>
